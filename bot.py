@@ -1,93 +1,96 @@
 import os
-import requests
-from io import BytesIO
-from dotenv import load_dotenv
+import io
+import wave
+import logging
+import base64
+from pydub import AudioSegment
 
+from google import genai
+from google.genai import types
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-load_dotenv()
+# ====================== CONFIG ======================
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+TTS_VOICE = "Kore"   # Kore ve Puck en iyi kız sesleri
 
-# Gerçekçi Ses ID'leri (ElevenLabs)
-VOICES = {
-    "kiz1": "EXAVITQu4vr4xnSDxMaL",   # Rachel (çok gerçekçi kız)
-    "kiz2": "21m00Tcm4TlvDq8ikWAM",   # Bella
-    "erkek1": "ErXwobaYiN019PkySvjV", # Adam
-    "erkek2": "VR6AewLTigWG4xSOukaG", # Josh
-    "ai": "EXAVITQu4vr4xnSDxMaL"
-}
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🎙 **Alone Gerçekçi Ses Bot** aktif!\n\n"
-        "Komutlar:\n"
-        "/kiz1 <metin> - En gerçekçi kız\n"
-        "/kiz2 <metin>\n"
-        "/erkek1 <metin>\n"
-        "/erkek2 <metin>\n"
-        "/ai <metin>\n\n"
-        "Örnek: /kiz1 Merhaba kanka, nasılsın?"
+client = genai.Client(api_key=GEMINI_API_KEY)
+
+# ====================== DAHA GERÇEKÇİ TTS ======================
+async def text_to_voice(text: str) -> bytes:
+    """Gerçek genç kız gibi konuşsun diye prompt güçlendirdik"""
+    # Gerçekçi prompt
+    enhanced_prompt = f"""
+    Gerçek bir Türk kızı gibi doğal, samimi ve duygusal bir ses tonuyla oku. 
+    Nefes al, vurguları doğal yap, biraz duygusal ve sevimli ol. 
+    Metin: {text}
+    """
+
+    response = client.models.generate_content(
+        model="gemini-3.1-flash-tts-preview",
+        contents=enhanced_prompt,
+        config=types.GenerateContentConfig(
+            response_modalities=["AUDIO"],
+            speech_config=types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                        voice_name=TTS_VOICE
+                    )
+                )
+            )
+        )
     )
 
-async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE, voice_id):
-    if not context.args:
-        await update.message.reply_text("Kullanım: `/kiz1 Merhaba`")
-        return
+    pcm_data = response.candidates[0].content.parts[0].inline_data.data
+    pcm_bytes = base64.b64decode(pcm_data)
 
-    text = " ".join(context.args)
+    # WAV → OGG
+    wav_buffer = io.BytesIO()
+    with wave.open(wav_buffer, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(24000)
+        wf.writeframes(pcm_bytes)
+    wav_buffer.seek(0)
+
+    audio = AudioSegment.from_wav(wav_buffer)
+    ogg_buffer = io.BytesIO()
+    audio.export(ogg_buffer, format="ogg", codec="libopus")
+    ogg_buffer.seek(0)
+    return ogg_buffer.read()
+
+# ====================== HANDLERS ======================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Tamam kanka! 👧 Bedava ve gerçekçi kız sesiyle çalışıyorum.\nMetin yaz, okuyayım."
+    )
+
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    await update.message.chat.send_action("record_voice")
 
     try:
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-        headers = {
-            "xi-api-key": ELEVENLABS_API_KEY,
-            "Content-Type": "application/json"
-        }
-        data = {
-            "text": text,
-            "model_id": "eleven_multilingual_v2",
-            "voice_settings": {"stability": 0.75, "similarity_boost": 0.85}
-        }
-
-        response = requests.post(url, json=data, headers=headers)
-        response.raise_for_status()
-
-        audio_bytes = BytesIO(response.content)
-        await update.message.reply_voice(voice=audio_bytes, caption="Gerçekçi Ses")
-        
+        voice_bytes = await text_to_voice(text)
+        await update.message.reply_voice(voice=voice_bytes, caption="Gerçekçi kız sesi ile ❤️")
     except Exception as e:
-        await update.message.reply_text(f"Hata: {str(e)}")
+        await update.message.reply_text(f"Hata: {str(e)[:200]}")
 
-# Komutlar
-async def kiz1(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, VOICES["kiz1"])
-
-async def kiz2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, VOICES["kiz2"])
-
-async def erkek1(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, VOICES["erkek1"])
-
-async def erkek2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, VOICES["erkek2"])
-
-async def ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, VOICES["ai"])
-
+# ====================== MAIN ======================
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
-    
+    app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("kiz1", kiz1))
-    app.add_handler(CommandHandler("kiz2", kiz2))
-    app.add_handler(CommandHandler("erkek1", erkek1))
-    app.add_handler(CommandHandler("erkek2", erkek2))
-    app.add_handler(CommandHandler("ai", ai))
-    
-    print("🚀 Gerçekçi Ses Bot çalışıyor!")
-    app.run_polling()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+
+    port = int(os.getenv("PORT", 8080))
+    if os.getenv("WEBHOOK_URL"):
+        app.run_webhook(listen="0.0.0.0", port=port, url_path="webhook", webhook_url=os.getenv("WEBHOOK_URL"))
+    else:
+        app.run_polling()
 
 if __name__ == "__main__":
     main()
