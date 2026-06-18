@@ -1,85 +1,92 @@
 import os
+import requests
 from io import BytesIO
 from dotenv import load_dotenv
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-import edge_tts
-
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
+# Gerçekçi Ses ID'leri (ElevenLabs)
 VOICES = {
-    "kiz1": "tr-TR-EmelNeural",
-    "kiz2": "tr-TR-ZehraNeural",
-    "erkek1": "tr-TR-AhmetNeural",
-    "erkek2": "tr-TR-EmreNeural",
-    "ai": "tr-TR-YusufNeural"
+    "kiz1": "EXAVITQu4vr4xnSDxMaL",   # Rachel (çok gerçekçi kız)
+    "kiz2": "21m00Tcm4TlvDq8ikWAM",   # Bella
+    "erkek1": "ErXwobaYiN019PkySvjV", # Adam
+    "erkek2": "VR6AewLTigWG4xSOukaG", # Josh
+    "ai": "EXAVITQu4vr4xnSDxMaL"
 }
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🎙 **Alone Ses Bot** aktif!\n\n"
+        "🎙 **Alone Gerçekçi Ses Bot** aktif!\n\n"
         "Komutlar:\n"
-        "/ses <metin> - Varsayılan kız\n"
-        "/kiz1 <metin>\n"
+        "/kiz1 <metin> - En gerçekçi kız\n"
         "/kiz2 <metin>\n"
         "/erkek1 <metin>\n"
         "/erkek2 <metin>\n"
         "/ai <metin>\n\n"
-        "Örnek: /kiz1 Merhaba kanka nasılsın?"
+        "Örnek: /kiz1 Merhaba kanka, nasılsın?"
     )
 
-async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE, voice_name="kiz1"):
+async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE, voice_id):
     if not context.args:
         await update.message.reply_text("Kullanım: `/kiz1 Merhaba`")
         return
 
     text = " ".join(context.args)
-    voice = VOICES.get(voice_name, VOICES["kiz1"])
 
     try:
-        communicate = edge_tts.Communicate(text, voice)
-        audio_bytes = BytesIO()
-        
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                audio_bytes.write(chunk["data"])
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        headers = {
+            "xi-api-key": ELEVENLABS_API_KEY,
+            "Content-Type": "application/json"
+        }
+        data = {
+            "text": text,
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {"stability": 0.75, "similarity_boost": 0.85}
+        }
 
-        audio_bytes.seek(0)
-        await update.message.reply_voice(voice=audio_bytes, caption=f"Ses: {voice_name}")
+        response = requests.post(url, json=data, headers=headers)
+        response.raise_for_status()
+
+        audio_bytes = BytesIO(response.content)
+        await update.message.reply_voice(voice=audio_bytes, caption="Gerçekçi Ses")
+        
     except Exception as e:
         await update.message.reply_text(f"Hata: {str(e)}")
 
-async def ses_kiz1(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, "kiz1")
+# Komutlar
+async def kiz1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await text_to_speech(update, context, VOICES["kiz1"])
 
-async def ses_kiz2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, "kiz2")
+async def kiz2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await text_to_speech(update, context, VOICES["kiz2"])
 
-async def ses_erkek1(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, "erkek1")
+async def erkek1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await text_to_speech(update, context, VOICES["erkek1"])
 
-async def ses_erkek2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, "erkek2")
+async def erkek2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await text_to_speech(update, context, VOICES["erkek2"])
 
-async def ses_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, "ai")
+async def ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await text_to_speech(update, context, VOICES["ai"])
 
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("ses", ses_kiz1))
-    app.add_handler(CommandHandler("kiz1", ses_kiz1))
-    app.add_handler(CommandHandler("kiz2", ses_kiz2))
-    app.add_handler(CommandHandler("erkek1", ses_erkek1))
-    app.add_handler(CommandHandler("erkek2", ses_erkek2))
-    app.add_handler(CommandHandler("ai", ses_ai))
+    app.add_handler(CommandHandler("kiz1", kiz1))
+    app.add_handler(CommandHandler("kiz2", kiz2))
+    app.add_handler(CommandHandler("erkek1", erkek1))
+    app.add_handler(CommandHandler("erkek2", erkek2))
+    app.add_handler(CommandHandler("ai", ai))
     
-    print("🚀 Alone Ses Bot çalışıyor!")
+    print("🚀 Gerçekçi Ses Bot çalışıyor!")
     app.run_polling()
 
 if __name__ == "__main__":
