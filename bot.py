@@ -11,35 +11,34 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Ses seçenekleri
 VOICES = {
-    "kız1": "tr-TR-EmelNeural",
-    "kız2": "tr-TR-ZehraNeural",
+    "kiz1": "tr-TR-EmelNeural",
+    "kiz2": "tr-TR-ZehraNeural",
     "erkek1": "tr-TR-AhmetNeural",
     "erkek2": "tr-TR-EmreNeural",
     "ai": "tr-TR-YusufNeural"
 }
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-await update.message.reply_text(
-    "🎙 **Alone Ses Bot** aktif!\n\n"
-    "Komutlar:\n"
-    "/ses <metin> - Varsayılan kız\n"
-    "/kiz1 <metin>\n"
-    "/kiz2 <metin>\n"
-    "/erkek1 <metin>\n"
-    "/erkek2 <metin>\n"
-    "/ai <metin>\n\n"
-    "Örnek: /kiz1 Merhaba kanka nasılsın?"
-)
+    await update.message.reply_text(
+        "🎙 **Alone Ses Bot** aktif!\n\n"
+        "Komutlar:\n"
+        "/ses <metin> - Varsayılan kız\n"
+        "/kiz1 <metin>\n"
+        "/kiz2 <metin>\n"
+        "/erkek1 <metin>\n"
+        "/erkek2 <metin>\n"
+        "/ai <metin>\n\n"
+        "Örnek: /kiz1 Merhaba kanka nasılsın?"
+    )
 
-async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE, voice_name="kız1"):
+async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE, voice_name="kiz1"):
     if not context.args:
-        await update.message.reply_text("Kullanım: `/kız1 Merhaba kanka`")
+        await update.message.reply_text("Kullanım: `/kiz1 Merhaba`")
         return
 
     text = " ".join(context.args)
-    voice = VOICES.get(voice_name, VOICES["kız1"])
+    voice = VOICES.get(voice_name, VOICES["kiz1"])
 
     try:
         communicate = edge_tts.Communicate(text, voice)
@@ -54,12 +53,11 @@ async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE, voi
     except Exception as e:
         await update.message.reply_text(f"Hata: {str(e)}")
 
-# Komutlar
 async def ses_kiz1(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, "kız1")
+    await text_to_speech(update, context, "kiz1")
 
 async def ses_kiz2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await text_to_speech(update, context, "kız2")
+    await text_to_speech(update, context, "kiz2")
 
 async def ses_erkek1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await text_to_speech(update, context, "erkek1")
@@ -73,10 +71,10 @@ async def ses_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     
-     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("ses", ses_kiz1))
-    app.add_handler(CommandHandler("kiz1", ses_kiz1))   # kız1 → kiz1
-    app.add_handler(CommandHandler("kiz2", ses_kiz2))   # kız2 → kiz2
+    app.add_handler(CommandHandler("kiz1", ses_kiz1))
+    app.add_handler(CommandHandler("kiz2", ses_kiz2))
     app.add_handler(CommandHandler("erkek1", ses_erkek1))
     app.add_handler(CommandHandler("erkek2", ses_erkek2))
     app.add_handler(CommandHandler("ai", ses_ai))
