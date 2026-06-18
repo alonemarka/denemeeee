@@ -21,17 +21,17 @@ VOICES = {
 }
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🎙 **Alone Ses Bot** aktif!\n\n"
-        "Komutlar:\n"
-        "/ses <metin> - Varsayılan kız\n"
-        "/kız1 <metin>\n"
-        "/kız2 <metin>\n"
-        "/erkek1 <metin>\n"
-        "/erkek2 <metin>\n"
-        "/ai <metin>\n\n"
-        "Örnek: /kız1 Merhaba kanka nasılsın?"
-    )
+await update.message.reply_text(
+    "🎙 **Alone Ses Bot** aktif!\n\n"
+    "Komutlar:\n"
+    "/ses <metin> - Varsayılan kız\n"
+    "/kiz1 <metin>\n"
+    "/kiz2 <metin>\n"
+    "/erkek1 <metin>\n"
+    "/erkek2 <metin>\n"
+    "/ai <metin>\n\n"
+    "Örnek: /kiz1 Merhaba kanka nasılsın?"
+)
 
 async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE, voice_name="kız1"):
     if not context.args:
@@ -73,10 +73,10 @@ async def ses_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     
-    app.add_handler(CommandHandler("start", start))
+     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("ses", ses_kiz1))
-    app.add_handler(CommandHandler("kız1", ses_kiz1))
-    app.add_handler(CommandHandler("kız2", ses_kiz2))
+    app.add_handler(CommandHandler("kiz1", ses_kiz1))   # kız1 → kiz1
+    app.add_handler(CommandHandler("kiz2", ses_kiz2))   # kız2 → kiz2
     app.add_handler(CommandHandler("erkek1", ses_erkek1))
     app.add_handler(CommandHandler("erkek2", ses_erkek2))
     app.add_handler(CommandHandler("ai", ses_ai))
